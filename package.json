@@ -1,0 +1,22 @@
+{
+  "name": "simple-http",
+  "version": "1.0.0",
+  "description": "simple http request module with debugging",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/walkermalling/http.git"
+  },
+  "keywords": [
+    "narwhal"
+  ],
+  "author": "Walker Malling",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/walkermalling/http/issues"
+  },
+  "homepage": "https://github.com/walkermalling/http#readme"
+}
