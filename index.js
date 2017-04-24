@@ -1,8 +1,15 @@
 const http = require('http');
+const url = require('url');
 const zlib = require('zlib');
 
-const log = ((obj) => {
-  console.log(JSON.stringify(obj));
+const initLog = ((init) => {
+  return (event) => {
+    console.log(
+      JSON.stringify(
+        Object.assign({}, init, { time: Date.now() }, event)
+      );
+    };
+  };
 });
 
 const requestWrapper = (options, callback) => {
@@ -22,8 +29,12 @@ const requestWrapper = (options, callback) => {
        createConnection,
        timeout
   */
+
+  const log = initLog({
+    url: url.parse(options).format(),
+  });
   
-  log({ message: 'http request', event: 'start', time: Date.now(), options });
+  log({ event: 'start', options });
   
   const request = http.request(options);
   /*
@@ -41,20 +52,20 @@ const requestWrapper = (options, callback) => {
   
   ['abort', 'aborted', 'continue', 'upgrade'].forEach((eventName) => {
     request.on(eventName, () => {
-      log({ message: 'http request', event: eventName, time: Date.now(), url: options.url });
+      log({ event: eventName });
     });
   });
 
   request.on('connect', (res, socket, head) => {
-    log({ message: 'http request', event: 'connect', time: Date.now(), url: options.url, head });
+    log({ event: 'connect', head });
   });
 
   request.on('socket', (socket) => {
-    log({ message: 'http request', event: 'socket', time: Date.now(), url: options.url });
+    log({ event: 'socket' });
   });
 
   request.on('error', (e) => {
-    log({ message: 'http request', event: 'error', time: Date.now(), url: options.url, error: e });
+    log({ event: 'error', error: e });
     callback(e);
   });
 
@@ -80,13 +91,7 @@ const requestWrapper = (options, callback) => {
       url
     */
     
-    log({
-      message: 'http request',
-      event: 'response',
-      time: Date.now(),
-      url: options.url,
-      statusCode: incomingMessage.statusCode,
-    });
+    log({ event: 'response', statusCode: incomingMessage.statusCode });
 
     const send = (completeResponse) => {
       if (incomingMessage.headers['content-type'] && incomingMessage.headers['content-type'].indexOf('application/json') > -1) {
@@ -128,12 +133,12 @@ const requestWrapper = (options, callback) => {
           stream.setEncoding('utf8');
 
           stream.on('data', (chunk) => {
-            log({ message: 'http reqeust', event: 'data', time: Date.now(), url: options.url, chunkLength: chunk.length });
+            log({ event: 'data', chunkLength: chunk.length });
             buffer.push(chunk);
           });
 
           stream.on('end', () => {
-            log({ message: 'http request', event: 'end', time: Date.now(), url: options.url, responseLength: buffer.length });
+            log({ event: 'end', responseLength: buffer.length });
             send(buffer.join());
           });
           
