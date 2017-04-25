@@ -2,14 +2,12 @@ const http = require('http');
 const url = require('url');
 const zlib = require('zlib');
 
-const initLog = ((init) => {
-  return (event) => {
-    console.log(
-      JSON.stringify(
-        Object.assign({}, init, { time: Date.now() }, event)
-      );
-    };
-  };
+const initLog = ((init) => (event) => {
+  console.log(
+    JSON.stringify(
+      Object.assign({}, init, { time: Date.now() }, event)
+    )
+  );
 });
 
 const requestWrapper = (options, callback) => {
@@ -33,14 +31,14 @@ const requestWrapper = (options, callback) => {
   const log = initLog({
     url: url.parse(options).format(),
   });
-  
+
   log({ event: 'start', options });
-  
+
   const request = http.request(options);
   /*
     'request' is an instance of http.ClientRequest
     https://nodejs.org/api/http.html#http_class_http_clientrequest
-    events: 
+    events:
       abort,
       aborted,
       connect,
@@ -49,8 +47,8 @@ const requestWrapper = (options, callback) => {
       socket,
       upgrade,
   */
-  
-  ['abort', 'aborted', 'continue', 'upgrade'].forEach((eventName) => {
+
+  ['abort', 'aborted', 'continue', 'socket', 'upgrade'].forEach((eventName) => {
     request.on(eventName, () => {
       log({ event: eventName });
     });
@@ -58,10 +56,6 @@ const requestWrapper = (options, callback) => {
 
   request.on('connect', (res, socket, head) => {
     log({ event: 'connect', head });
-  });
-
-  request.on('socket', (socket) => {
-    log({ event: 'socket' });
   });
 
   request.on('error', (e) => {
@@ -73,28 +67,31 @@ const requestWrapper = (options, callback) => {
     /*
       incomingMessage is an instance of http.IncomingMessage
       response is emitted only once
-      events: 
-      aborted, 
-      close
-      methods:
-      destroy,
-      header,
-      httpVersion,
-      method,
-      rawHeaders,
-      rawTrailers,
-      setTimeout,
-      socket,
-      statusCode,
-      statusMessage,
-      trailers,
-      url
+      events:
+       aborted,
+       close
+       methods:
+       destroy,
+       header,
+       httpVersion,
+       method,
+       rawHeaders,
+       rawTrailers,
+       setTimeout,
+       socket,
+       statusCode,
+       statusMessage,
+       trailers,
+       url
     */
-    
+
+    const contentType = incomingMessage.headers['content-type'];
+    const contentEncoding = incomingMessage.headers['content-encoding'];
+
     log({ event: 'response', statusCode: incomingMessage.statusCode });
 
     const send = (completeResponse) => {
-      if (incomingMessage.headers['content-type'] && incomingMessage.headers['content-type'].indexOf('application/json') > -1) {
+      if (contentType && contentType.indexOf('application/json') > -1) {
         try {
           callback(null, JSON.parse(completeResponse));
         } catch (e) {
@@ -105,17 +102,15 @@ const requestWrapper = (options, callback) => {
       }
     };
 
-    const getIncomingMessageHandler = (headers) => {
+    const getIncomingMessageHandler = () => {
       const buffer = [];
-      
-      if (headers['content-encoding'] && headers['content-encoding'].indexOf('gzip') > -1) {
 
-        return function decompressResponse (stream) {
-          
+      if (contentEncoding && contentEncoding.indexOf('gzip') > -1) {
+        return function decompressResponse(stream) {
           const gunzip = zlib.createGunzip();
-          
+
           gunzip.on('data', (chunk) => {
-            log({ message: 'http reqeust', event: 'data(gzip)', time: Date.now(), url: options.url, chunkLength: chunk.length });
+            log({ message: 'http reqeust', event: 'data(gzip)', chunkLength: chunk.length });
             buffer.push(chunk.toString());
           });
 
@@ -125,33 +120,27 @@ const requestWrapper = (options, callback) => {
 
           stream.pipe(gunzip);
         };
-        
-      } else {
-
-        return function readResponse (stream) {
-          
-          stream.setEncoding('utf8');
-
-          stream.on('data', (chunk) => {
-            log({ event: 'data', chunkLength: chunk.length });
-            buffer.push(chunk);
-          });
-
-          stream.on('end', () => {
-            log({ event: 'end', responseLength: buffer.length });
-            send(buffer.join());
-          });
-          
-        };
       }
+      return function readResponse(stream) {
+        stream.setEncoding('utf8');
+
+        stream.on('data', (chunk) => {
+          log({ event: 'data', chunkLength: chunk.length });
+          buffer.push(chunk);
+        });
+
+        stream.on('end', () => {
+          log({ event: 'end', responseLength: buffer.length });
+          send(buffer.join());
+        });
+      };
     };
 
-    const handleResponseStream = getIncomingMessageHandler(incomingMessage.headers);
+    const handleResponseStream = getIncomingMessageHandler();
 
     handleResponseStream(incomingMessage);
-
   });
-  
+
   request.end();
 };
 
