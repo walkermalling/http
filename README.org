@@ -1,0 +1,64 @@
+* Bare-bones HTTP Request Library
+** What is This?
+If three walls and a floor make a house, then you can call this a http request library.
+** Well then, Why?
+It started as a debugging tool, for better introspection in a highly concurrent system that was exhibitting odd latency.
+
+But then this module showed some prety consistent performance advantages over mainstream libraries like Request.
+** Ok, more info:
+This module will perform basic http requests.  It will unzip =gzip= responses, and parse =json= responses. It will log every event the incoming message emits if you set you log level to =verbose=.
+
+It does not make https requests.  
+** Ok, more info:
+The first feature branch was named =narwhal= for =Not Another Reclusive WHite Asshole's Library=, because I'm not white, reclusive, or an ass hole.  Or maybe because I am, but this isn't a library.
+** Ok, more info:
+This is about an hour's work, and really ugly.  I may refactor it, if I decide I don't like it more as a piece of modern art, you know, where they hang trash on a wall and worship it. 
+
+* Request Options
+
+According to nodejs documentation, the http library accepts these options:
+
+*** protocol
+*** host
+*** hostname
+*** family
+*** port
+*** localAddress
+*** socketPath
+*** method
+*** path
+*** headers
+*** auth
+*** agent
+*** createConnection
+*** timeout
+
+* http.request
+
+=http.request= returns and instance of =http.clientRequest=, which emits the following events
+
+*** abort
+*** aborted
+*** connect
+*** continue
+*** response
+*** socket
+*** upgrade
+
+* =response= event
+
+The =response= event is emitted by =http.cientRequest= exactly once.  It provides an instance of =http.IncomingMessage= as an argument to listeners of the event.  The =http.IncomingMessage=, in turn, emits =aborted= and =close= events, and also provides the following methods and properties:
+
+*** destroy(<error>)
+*** header
+*** httpVersion
+*** method
+*** rawHeaders
+*** rawTrailers
+*** setTimeout(<ms>, <callback>)
+*** sockeet
+*** statusCode
+*** statusMessage
+*** trailers
+*** url
+

@@ -1,8 +1,13 @@
 const http = require('http');
-const url = require('url');
 const zlib = require('zlib');
 
+const DEBUG = process.env.LOG_LEVEL === 'verbose';
+
 const initLog = ((init) => (event) => {
+  if (!DEBUG) {
+    return;
+  }
+  delete event.options; // eslint-disable-line
   console.log(
     JSON.stringify(
       Object.assign({}, init, { time: Date.now() }, event)
@@ -11,42 +16,13 @@ const initLog = ((init) => (event) => {
 });
 
 const requestWrapper = (options, callback) => {
-  /* options:
-       protocol,
-       host,
-       hostname,
-       family,
-       port,
-       localAddress,
-       socketPath,
-       method,
-       path,
-       headers,
-       auth,
-       agent,
-       createConnection,
-       timeout
-  */
-
   const log = initLog({
-    url: url.parse(options).format(),
+    url: options.pathname,
   });
 
   log({ event: 'start', options });
 
   const request = http.request(options);
-  /*
-    'request' is an instance of http.ClientRequest
-    https://nodejs.org/api/http.html#http_class_http_clientrequest
-    events:
-      abort,
-      aborted,
-      connect,
-      contniue,
-      response,
-      socket,
-      upgrade,
-  */
 
   ['abort', 'aborted', 'continue', 'socket', 'upgrade'].forEach((eventName) => {
     request.on(eventName, () => {
@@ -64,26 +40,10 @@ const requestWrapper = (options, callback) => {
   });
 
   request.on('response', (incomingMessage) => {
-    /*
-      incomingMessage is an instance of http.IncomingMessage
-      response is emitted only once
-      events:
-       aborted,
-       close
-       methods:
-       destroy,
-       header,
-       httpVersion,
-       method,
-       rawHeaders,
-       rawTrailers,
-       setTimeout,
-       socket,
-       statusCode,
-       statusMessage,
-       trailers,
-       url
-    */
+    if (incomingMessage.statusCode !== 200) {
+      callback({ message: 'error', statusCode: incomingMessage.statusCode });
+      return;
+    }
 
     const contentType = incomingMessage.headers['content-type'];
     const contentEncoding = incomingMessage.headers['content-encoding'];
@@ -93,12 +53,12 @@ const requestWrapper = (options, callback) => {
     const send = (completeResponse) => {
       if (contentType && contentType.indexOf('application/json') > -1) {
         try {
-          callback(null, JSON.parse(completeResponse));
+          callback(null, incomingMessage, JSON.parse(completeResponse));
         } catch (e) {
           callback(e);
         }
       } else {
-        callback(null, completeResponse);
+        callback(null, incomingMessage, completeResponse);
       }
     };
 
